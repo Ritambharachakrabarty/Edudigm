@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Autonomous Bus Ticketing System</title>
+  
+  <!-- React & Babel -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/babel-standalone@7/babel.min.js"></script>
+
+  <!-- QR Code library for fallback -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+
+  <!-- Tailwind CSS (Use local compiled in production) -->
+  <link href="./dist/output.css" rel="stylesheet">
+</head>
+<body>
+  <div id="root" class="min-h-screen bg-gray-100"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const stops = [
+      { id: 1, name: "Stop A" },
+      { id: 2, name: "Stop B" },
+      { id: 3, name: "Stop C" },
+      { id: 4, name: "Stop D" },
+      { id: 5, name: "Stop E" },
+    ];
+
+    function FareCalculator({ fromStop, toStop, setFare }) {
+      useEffect(() => {
+        if (fromStop && toStop) {
+          const distance = Math.abs(fromStop - toStop);
+          setFare(distance * 10);
+        }
+      }, [fromStop, toStop]);
+      return null;
+    }
+
+    function NFCWriter({ ticketData, setMessage }) {
+      const encryptData = (data) => {
+        return btoa(JSON.stringify(data)); // placeholder encryption
+      };
+
+      const writeNFC = async () => {
+        if ('NDEFWriter' in window) {
+          try {
+            const writer = new NDEFWriter();
+            const encrypted = encryptData(ticketData);
+            await writer.write({
+              records: [{
+                recordType: "mime",
+                mediaType: "application/json",
+                data: new TextEncoder().encode(encrypted)
+              }]
+            });
+            setMessage("Ticket written to NFC!");
+          } catch (err) {
+            setMessage("Error writing to NFC: " + err.message);
+          }
+        } else {
+          setMessage("NFC not supported. QR code generated below.");
+        }
+      };
+
+      useEffect(() => {
+        if (!('NDEFWriter' in window) && ticketData) {
+          const canvas = document.getElementById("qrCanvas");
+          QRCode.toCanvas(canvas, JSON.stringify(ticketData), { width: 128 });
+        }
+      }, [ticketData]);
+
+      return (
+        <div>
+          <button
+            onClick={writeNFC}
+            className="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 mb-4"
+          >
+            Write Ticket to NFC
+          </button>
+
+          {!('NDEFWriter' in window) && (
+            <div className="text-center mt-4">
+              <p className="text-sm text-gray-600 mb-2">NFC not supported? Scan this QR code:</p>
+              <canvas id="qrCanvas" width="128" height="128" className="mx-auto"></canvas>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function BookingPage({ setCurrentPage, setTicketHistory }) {
+      const [fromStop, setFromStop] = useState("");
+      const [toStop, setToStop] = useState("");
+      const [fare, setFare] = useState(0);
+      const [message, setMessage] = useState("");
+      const [ticketData, setTicketData] = useState(null);
+      const [isLoading, setIsLoading] = useState(false);
+
+      const handleBooking = () => {
+        if (!fromStop || !toStop) {
+          setMessage("Please select both source and destination stops.");
+          return;
+        }
+        setIsLoading(true);
+        setTimeout(() => {
+          const ticket = {
+            ticketId: `TICKET-${Math.random().toString(36).substr(2, 9)}`,
+            from: stops.find(s => s.id === parseInt(fromStop)).name,
+            to: stops.find(s => s.id === parseInt(toStop)).name,
+            fare,
+            timestamp: new Date().toISOString(),
+            status: "valid"
+          };
+          setTicketData(ticket);
+          setTicketHistory(prev => [...prev, ticket]);
+          setMessage("Payment successful! Ready to write to NFC.");
+          setIsLoading(false);
+        }, 1000);
+      };
+
+      return (
+        <div className="max-w-md mx-auto p-4">
+          <h1 className="text-2xl font-bold mb-4">Book Your Bus Ticket</h1>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">From</label>
+            <select
+              value={fromStop}
+              onChange={(e) => setFromStop(e.target.value)}
+              className="w-full p-2 border rounded-lg"
+            >
+              <option value="">Select Source</option>
+              {stops.map(stop => (
+                <option key={stop.id} value={stop.id}>{stop.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">To</label>
+            <select
+              value={toStop}
+              onChange={(e) => setToStop(e.target.value)}
+              className="w-full p-2 border rounded-lg"
+            >
+              <option value="">Select Destination</option>
+              {stops.map(stop => (
+                <option key={stop.id} value={stop.id}>{stop.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <FareCalculator fromStop={parseInt(fromStop)} toStop={parseInt(toStop)} setFare={setFare} />
+
+          <div className="mb-4">
+            <p className="text-lg font-semibold">Fare: ₹{fare}</p>
+          </div>
+
+          <button
+            onClick={handleBooking}
+            disabled={isLoading}
+            className={`w-full py-2 rounded-lg text-white ${isLoading ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'}`}
+          >
+            {isLoading ? 'Processing...' : 'Pay and Generate Ticket'}
+          </button>
+
+          {ticketData && <NFCWriter ticketData={ticketData} setMessage={setMessage} />}
+
+          {message && <p className="mt-4 text-center text-sm text-red-500">{message}</p>}
+
+          <button
+            onClick={() => setCurrentPage("history")}
+            className="w-full mt-4 text-blue-500 underline"
+          >
+            View Ticket History
+          </button>
+        </div>
+      );
+    }
+
+    function HistoryPage({ setCurrentPage, ticketHistory }) {
+      return (
+        <div className="max-w-md mx-auto p-4">
+          <h1 className="text-2xl font-bold mb-4">Ticket History</h1>
+          {ticketHistory.length > 0 ? (
+            <div className="space-y-4">
+              {ticketHistory.map((ticket, index) => (
+                <div key={index} className="border p-4 rounded-lg">
+                  <p><strong>Ticket ID:</strong> {ticket.ticketId}</p>
+                  <p><strong>From:</strong> {ticket.from}</p>
+                  <p><strong>To:</strong> {ticket.to}</p>
+                  <p><strong>Fare:</strong> ₹{ticket.fare}</p>
+                  <p><strong>Time:</strong> {new Date(ticket.timestamp).toLocaleString()}</p>
+                  <p><strong>Status:</strong> {ticket.status}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>No tickets booked yet.</p>
+          )}
+          <button
+            onClick={() => setCurrentPage("booking")}
+            className="w-full mt-4 text-blue-500 underline"
+          >
+            Back to Booking
+          </button>
+        </div>
+      );
+    }
+
+    function App() {
+      const [currentPage, setCurrentPage] = useState("booking");
+      const [ticketHistory, setTicketHistory] = useState([]);
+      return (
+        <div className="min-h-screen bg-gray-100">
+          {currentPage === "booking" ? (
+            <BookingPage setCurrentPage={setCurrentPage} setTicketHistory={setTicketHistory} />
+          ) : (
+            <HistoryPage setCurrentPage={setCurrentPage} ticketHistory={ticketHistory} />
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
