@@ -1,0 +1,3 @@
+Tap and Go: The Rise of NFC Bus Tickets in India
+Kolkata, India – While the convenience of tapping a card or phone to pay for a bus ride is becoming a reality in several Indian cities, Kolkata is still on the journey to fully implement a widespread Near Field Communication (NFC) ticketing system for its local bus network. However, the groundwork is being laid for a more seamless and digital public transport experience in the city.
+Currently, for local bus travel within Kolkata, commuters primarily rely on traditional paper tickets issued by conductors. While various apps provide real-time bus tracking and route information, a direct and operational NFC-based payment system for the West Bengal Transport Corporation (WBTC) buses is yet to be rolled out comprehensively.
